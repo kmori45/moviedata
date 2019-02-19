@@ -4,28 +4,23 @@
 gen_moviedb <- function(start_year, end_year, min_votes = 0){
   library(tidyverse)
   library(stringr)
+  library(RMySQL)
   
-  title.basics <- 
-    read.delim2("~/Dropbox (CSU Fullerton)/gitproj/moviedata/data/title.basics.tsv",
-                stringsAsFactors = FALSE)
+  mychannel <- dbConnect(MySQL(), 
+                         user="kevdev", 
+                         dbname = "univ.db", 
+                         password = "kevdev01", 
+                         host="192.168.1.110")
   
-  title.ratings <- 
-    read.delim("~/Dropbox (CSU Fullerton)/gitproj/moviedata/data/title.ratings.tsv",
-               stringsAsFactors = FALSE)
+  dbSendQuery(mychannel, "SET NAMES utf8mb4;")
+  dbSendQuery(mychannel, "SET CHARACTER SET utf8mb4;")
+  dbSendQuery(mychannel, "SET character_set_connection=utf8mb4;")
+  
+  table_state <- dbExistsTable(mychannel, "imdbTable")
+  
+  title_database <- dbReadTable(mychannel, "imdbTable", fileEncoding="UTF-8")
 
-  title.basics$startYear <- as.numeric(title.basics$startYear)
-  title.basics$runtimeMinutes <- as.numeric(title.basics$runtimeMinutes)
-  
-  title_database <- title.basics %>%
-    filter(startYear > start_year & startYear < end_year) %>%
-    filter(isAdult == 0 & titleType=="movie") %>%
-    select(-endYear, -isAdult, -titleType)
-  
-  title_database$genres <- type.convert(title_database$genres, na.strings="\\N")
-  
-  title_database <- left_join(title_database, title.ratings, by = "tconst")
-
-  if(min_votes>0) {
+    if(min_votes>0) {
     title_database <- title_database %>%
       filter(!is.na(numVotes)) %>%
       filter(numVotes > min_votes-1)

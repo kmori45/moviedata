@@ -1,13 +1,19 @@
-# This file retrieves IMDB data and puts it in a server location for future
+# This function retrieves IMDB data and puts it in a server location for future
 # use.
 
+
+refresh_imdbTable <- function() {
 library(R.utils)
 library(readr)
 library(tidyverse)
 library(RMySQL)
 
+Encoding(title_database$primaryTitle) <- "UTF-8"
+
+head(title_database$primaryTitle,25)
+
 url <- "https://datasets.imdbws.com/title.basics.tsv.gz"
-dest <- "~/Downloads/title.basics.tsv"
+dest <- "~/Downloads/title.basics.tsv.gz"
 download.file(url, dest)
 gunzip(dest)
 
@@ -15,9 +21,10 @@ title_basics <- read_delim("~/Downloads/title.basics.tsv",
                            "\t", escape_double = FALSE, 
                            col_types = cols(isAdult = col_character(),
                                             startYear = col_character()), 
-                           trim_ws = TRUE)
+                           trim_ws = TRUE,
+                           locale = locale(encoding = 'UTF-8'))
 
-file.remove("Downloads/title.basics.tsv")
+file.remove("~/Downloads/title.basics.tsv")
 
 url <- "https://datasets.imdbws.com/title.ratings.tsv.gz"
 dest <- "~/Downloads/title.ratings.tsv.gz"
@@ -25,7 +32,8 @@ download.file(url, dest)
 gunzip(dest)
 
 title_ratings <- read_delim("~/Downloads/title.ratings.tsv", 
-                            "\t", escape_double = FALSE, trim_ws = TRUE)
+                            "\t", escape_double = FALSE, trim_ws = TRUE,
+                            locale = locale(encoding = 'UTF-8'))
 
 file.remove("~/Downloads/title.ratings.tsv")
 
@@ -41,7 +49,7 @@ title_database <- title_basics %>%
   filter(isAdult == 0 & titleType=="movie") %>%
   select(-endYear, -isAdult, -titleType)
 
-rm(title_basics)
+rm(title_basics, title_ratings)
 
 title_database$genres <- type.convert(title_database$genres, na.strings="\\N")
 
@@ -63,7 +71,10 @@ if(table_state) {
   dbRemoveTable(mychannel, "imdbTable")
 }
 
-dbWriteTable(mychannel, "imdbTable", title_database)
+dbWriteTable(mychannel, "imdbTable", title_database, fileEncoding="UTF-8")
 table_state <- dbExistsTable(mychannel, "imdbTable")
 
 dbDisconnectAll()
+
+rm(title_database)
+}
