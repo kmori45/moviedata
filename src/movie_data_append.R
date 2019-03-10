@@ -48,4 +48,11 @@ final_match$countryOrigin <- s
 
 final_match$countryOrigin <- ifelse(is.na(final_match$countryOrigin),final_match$oCountry,final_match$countryOrigin)
 
-write.csv(final_match, "output/appended_movieID.csv")
+final_match$peopleScore <- ifelse(is.na(final_match$peopleScore),final_match$imdbRating,final_match$peopleScore)
+
+final_match <- final_match %>% rename(tconst = imdbID) %>%
+  mutate(parentTitle = mediaTitle)
+
+write.csv(final_match[,-10:-13], "output/appended_movieID.csv", row.names = FALSE)
+
+

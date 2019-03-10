@@ -2,11 +2,11 @@ library(readr)
 library(tidyverse)
 
 # Load data from media load SQL
-media_load_titles <- read_csv("data/media_load_titles.csv")
+media_load_titles <- read.csv("data/media_load_titles.csv", stringsAsFactors = FALSE)
 
 # Load mid-uniqueID lookup table
 mid_uniqueID_lookup <- 
-  read.csv("data/mid_uniqueID_lookup.csv")
+  read.csv("data/mid_uniqueID_lookup.csv", stringsAsFactors = FALSE)
 
 mid_lookup <- mid_uniqueID_lookup[,c(1,2,3,19)]
 
@@ -15,16 +15,19 @@ media_load_titles <- left_join(media_load_titles, mid_lookup, by="MID") %>%
   filter(!is.na(uniqueID))
 
 # Generate broad categories of stuff
-other_stuff <- c("map", "advert", "promo", "safety", "graphic", "trailer", "dvd")
+admin <-  c("safety","graphic","map","dvd","advert", "promo", "trailer")
 tv <- c("base_tvepisode","tvseries","tvepisode")
 movie <- c("base_movie","movie")
+game <- c("game")
 
-media_load_titles$category[media_load_titles$contenttype %in% other_stuff] <- "Other"
+media_load_titles$category[media_load_titles$contenttype %in% admin] <- "Other"
 media_load_titles$category[media_load_titles$contenttype %in% tv] <- "Television"  
 media_load_titles$category[media_load_titles$contenttype %in% movie] <- "Movie"  
+media_load_titles$category[media_load_titles$contenttype %in% game] <- "Game" 
 
 # Load data from airlines usage
-Media_usage_raw_ES_data_nov <- read.csv("data/Media_usage_raw_ES_data_nov.csv")
+Media_usage_raw_ES_data_nov <- read.csv("data/Media_usage_raw_ES_data_nov.csv",
+                                        stringsAsFactors = FALSE)
 
 media_airplane_titles <- Media_usage_raw_ES_data_nov %>%
   select(Media.Content.Type.Name, Media.Name, Media.Language.Name, 
@@ -38,9 +41,6 @@ tail_nonmatch <- anti_join(media_airplane_titles, media_load_titles, by=c("Media
 nonmatch_summary <- tail_nonmatch %>%
   group_by(Media.Content.Type.Name) %>%
   summarize(n())
-
-barplot(nonmatch_summary$`n()`,names.arg = nonmatch_summary$Media.Content.Type.Name)
-nonmatch_summary
 
 # Add movie non-matches to media load (so we can classify them)
 movie_nonmatch <- tail_nonmatch[tail_nonmatch$Media.Content.Type.Name=="Movie",] %>%
@@ -62,14 +62,20 @@ write.csv(movie_uniqueID, "output/movie_uniqueID.csv", row.names = FALSE)
 
 # Add TV non-matches to media load (so we can classify them)
 tv_nonmatch <- tail_nonmatch[tail_nonmatch$Media.Content.Type.Name=="TV Episode",] %>%
-  select(Media.Unique.ID, Media.Name) %>%
+  select(Media.Unique.ID, Media.Name, Media.Parent.Name) %>%
   mutate(category = "Television", year=NA, countryOrigin=NA, genre=NA, peopleScore=NA, criticScore = NA) %>%
-  rename(uniqueID = Media.Unique.ID, mediaTitle = Media.Name)
+  rename(uniqueID = Media.Unique.ID, mediaTitle = Media.Name, parentTitle = Media.Parent.Name)
+
+find_titles <- Media_usage_raw_ES_data_nov %>%
+  select(Media.Unique.ID, Media.Parent.Name) %>%
+  filter(Media.Parent.Name != "") %>%
+  unique()
 
 tv_load <- media_load_titles %>%
   filter(category == "Television") %>%
   select(uniqueID, title, category, year, genre, countryOrigin, peopleScore, criticScore) %>%
-  rename(mediaTitle = title)
+  left_join(find_titles, by=c("uniqueID" = "Media.Unique.ID")) %>%
+  rename(mediaTitle = title, parentTitle = Media.Parent.Name)
 
 tv_uniqueID <- rbind(tv_nonmatch, tv_load) %>%
   unique() %>%
@@ -117,4 +123,3 @@ other_uniqueID <- rbind(other_tail, other_load, music_uniqueID, game_uniqueID) %
 
 #Write UniqueID classifiers into a file
 write.csv(other_uniqueID, "output/other_uniqueID.csv", row.names = FALSE)
-

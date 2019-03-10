@@ -43,7 +43,10 @@ full_match <- left_join(full_match, group_count, by="uniqueID") %>%
 
 # Manage duplicate matches here
 dup_append <- dup_match %>%
-  filter(numVotes == max(numVotes))
+  group_by(uniqueID) %>%
+  arrange(.by_group = TRUE, desc(numVotes)) %>%  
+  filter(numVotes == first(numVotes))
+
 
 full_match <- rbind(full_match, dup_append)
 
@@ -89,10 +92,6 @@ tmdb_match <- match_list %>%
 
 movielist_3 <- match_list %>%
   filter(is.na(w))
-
-
-
-
 
 #Match TMDB ID with IMDB ID
 url2 <- paste("https://api.themoviedb.org/3/movie/",sep="")
